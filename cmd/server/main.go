@@ -2,7 +2,11 @@ package main
 
 import (
 	"bytes"
+	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/x509"
 	"encoding/binary"
+	"encoding/pem"
 	"flag"
 	"fmt"
 	"hash/fnv"
@@ -28,6 +32,9 @@ var (
 	verbose       = flag.Bool("v", false, "Verbose logging")
 	logFile       = flag.String("log", "", "Log file path")
 	statsInterval = flag.Int("stats", 30, "Stats reporting interval (seconds)")
+	genKey        = flag.Bool("gen-key", false, "Generate new key pair and exit")
+	privKeyFile   = flag.String("privkey-file", "server.key", "Private key output file")
+	pubKeyFile    = flag.String("pubkey-file", "server.pub", "Public key output file")
 )
 
 // SessionManager maintains active tunnel sessions
@@ -312,8 +319,53 @@ func init() {
 	}
 }
 
+func writePEMFile(path string, blockType string, bytes []byte) error {
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	return pem.Encode(f, &pem.Block{Type: blockType, Bytes: bytes})
+}
+
+func generateKeyPair(privFile, pubFile string) error {
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return err
+	}
+
+	privBytes, err := x509.MarshalPKCS8PrivateKey(priv)
+	if err != nil {
+		return err
+	}
+
+	if err := writePEMFile(privFile, "PRIVATE KEY", privBytes); err != nil {
+		return err
+	}
+
+	pubBytes, err := x509.MarshalPKIXPublicKey(pub)
+	if err != nil {
+		return err
+	}
+
+	if err := writePEMFile(pubFile, "PUBLIC KEY", pubBytes); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func main() {
 	flag.Parse()
+
+	if *genKey {
+		if err := generateKeyPair(*privKeyFile, *pubKeyFile); err != nil {
+			log.Fatalf("Failed to generate key pair: %v\n", err)
+		}
+		fmt.Printf("Generated keys:\n  private: %s\n  public: %s\n", *privKeyFile, *pubKeyFile)
+		return
+	}
 
 	if *workers < 1 {
 		*workers = 1
