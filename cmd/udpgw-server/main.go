@@ -32,21 +32,21 @@ type Stats struct {
 }
 
 type Session struct {
-	ID    string
-	Conn  *net.UDPConn
-	Addr  *net.UDPAddr
-	Seen  time.Time
-	Lock  sync.Mutex
+	ID   string
+	Conn *net.UDPConn
+	Addr *net.UDPAddr
+	Seen time.Time
+	Lock sync.Mutex
 }
 
 type Gateway struct {
-	listener   *net.UDPConn
-	remote     *net.UDPAddr
-	sessions   map[string]*Session
-	lock       sync.RWMutex
-	queue      chan *UDPPacket
-	done       chan struct{}
-	wg         sync.WaitGroup
+	listener *net.UDPConn
+	remote   *net.UDPAddr
+	sessions map[string]*Session
+	lock     sync.RWMutex
+	queue    chan *UDPPacket
+	done     chan struct{}
+	wg       sync.WaitGroup
 }
 
 type UDPPacket struct {
