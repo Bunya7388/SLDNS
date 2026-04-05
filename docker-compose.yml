@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  dnstt-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dnstt-server
+    ports:
+      - "53:53/udp"
+    environment:
+      - WORKERS=64
+      - VERBOSE=true
+    command: dnstt-server -l 0.0.0.0:53 -h 64 -v
+    restart: always
+    cap_add:
+      - NET_ADMIN
+    networks:
+      - dnstt-network
+
+  dnstt-client:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dnstt-client
+    depends_on:
+      - dnstt-server
+    environment:
+      - SERVER_ADDR=dnstt-server:53
+      - LOCAL_ADDR=0.0.0.0:8888
+    command: dnstt-client -s dnstt-server:53 -l 0.0.0.0:8888 -v
+    restart: always
+    networks:
+      - dnstt-network
+    ports:
+      - "8888:8888"
+
+networks:
+  dnstt-network:
+    driver: bridge
