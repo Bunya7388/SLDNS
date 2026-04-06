@@ -333,6 +333,14 @@ func writeHexFile(path string, data []byte) error {
 	return err
 }
 
+func loadPublicKey(pubFile string) (string, error) {
+	data, err := os.ReadFile(pubFile)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
 func generateKeyPair(privFile, pubFile string) error {
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
@@ -411,6 +419,12 @@ func main() {
 	}
 
 	fmt.Printf("DNS Server listening on %s with %d workers\n", *listenAddr, *workers)
+
+	// Load and display public key
+	pubKey, err := loadPublicKey(*pubKeyFile)
+	if err == nil {
+		fmt.Printf("[INFO] Public Key: %s\n", pubKey)
+	}
 
 	buffer := make([]byte, 4096)
 	for {
