@@ -21,9 +21,12 @@ import (
 )
 
 const (
-	MAX_DNS_PAYLOAD = 512
-	CHUNK_SIZE      = 240
-	VERSION         = "1.0"
+	CHUNK_SIZE = 240
+	VERSION    = "1.0"
+)
+
+var (
+	maxDNSPayload = 512 // Will be set from flag
 )
 
 var (
@@ -35,6 +38,7 @@ var (
 	genKey        = flag.Bool("gen-key", false, "Generate new key pair and exit")
 	privKeyFile   = flag.String("privkey-file", "server.key", "Private key output file")
 	pubKeyFile    = flag.String("pubkey-file", "server.pub", "Public key output file")
+	mtu           = flag.Int("mtu", 512, "Maximum DNS payload size (MTU)")
 )
 
 // SessionManager maintains active tunnel sessions
@@ -148,7 +152,7 @@ func (sm *SessionManager) GetOrCreate(sessionID uint32) *Session {
 		ID:         sessionID,
 		Created:    time.Now(),
 		LastActive: time.Now(),
-		Buffer:     bytes.NewBuffer(make([]byte, 0, MAX_DNS_PAYLOAD*10)),
+		Buffer:     bytes.NewBuffer(make([]byte, 0, maxDNSPayload*10)),
 	}
 	sm.sessions[sessionID] = session
 	atomic.AddUint64(&stats.ActiveSessions, 1)
@@ -358,6 +362,8 @@ func generateKeyPair(privFile, pubFile string) error {
 
 func main() {
 	flag.Parse()
+
+	maxDNSPayload = *mtu
 
 	if *genKey {
 		if err := generateKeyPair(*privKeyFile, *pubKeyFile); err != nil {
