@@ -4,9 +4,8 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
-	"crypto/x509"
 	"encoding/binary"
-	"encoding/pem"
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"hash/fnv"
@@ -323,14 +322,15 @@ func init() {
 	}
 }
 
-func writePEMFile(path string, blockType string, bytes []byte) error {
+func writeHexFile(path string, data []byte) error {
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	return pem.Encode(f, &pem.Block{Type: blockType, Bytes: bytes})
+	_, err = f.WriteString(hex.EncodeToString(data))
+	return err
 }
 
 func generateKeyPair(privFile, pubFile string) error {
@@ -339,21 +339,11 @@ func generateKeyPair(privFile, pubFile string) error {
 		return err
 	}
 
-	privBytes, err := x509.MarshalPKCS8PrivateKey(priv)
-	if err != nil {
+	if err := writeHexFile(privFile, priv); err != nil {
 		return err
 	}
 
-	if err := writePEMFile(privFile, "PRIVATE KEY", privBytes); err != nil {
-		return err
-	}
-
-	pubBytes, err := x509.MarshalPKIXPublicKey(pub)
-	if err != nil {
-		return err
-	}
-
-	if err := writePEMFile(pubFile, "PUBLIC KEY", pubBytes); err != nil {
+	if err := writeHexFile(pubFile, pub); err != nil {
 		return err
 	}
 
