@@ -253,9 +253,9 @@ func processDNSQuery(req *DNSRequest) {
 		return
 	}
 
-	// Generate session ID from query
+	// Generate session ID from client address to keep one session per client endpoint
 	h := fnv.New32a()
-	h.Write(query[12:])
+	h.Write([]byte(req.Addr.String()))
 	sessionID := h.Sum32()
 
 	session := sessionMgr.GetOrCreate(sessionID)
@@ -299,6 +299,15 @@ func startStatsReporter() {
 			lastPackets = currentPackets
 			lastBytes = currentBytes
 			lastTime = now
+		}
+	}()
+}
+
+func startSessionCleanup() {
+	ticker := time.NewTicker(1 * time.Minute)
+	go func() {
+		for range ticker.C {
+			sessionMgr.Cleanup()
 		}
 	}()
 }
@@ -397,6 +406,7 @@ func main() {
 	wp.Start()
 
 	startStatsReporter()
+	startSessionCleanup()
 	handleSignals(wp)
 
 	// Listen for UDP packets
