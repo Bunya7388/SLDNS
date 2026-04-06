@@ -74,14 +74,21 @@ func parseDNSResponse(response []byte) []byte {
 	}
 
 	pos := 12
-	for pos < len(response) && response[pos] != 0 {
+	for pos < len(response) {
+		if response[pos] == 0 {
+			pos++
+			break
+		}
 		if (response[pos] & 0xc0) == 0xc0 {
 			pos += 2
 			break
 		}
 		pos++
 	}
-	pos++
+
+	if pos+4 > len(response) {
+		return nil
+	}
 	pos += 4
 
 	if pos+10 < len(response) {
@@ -102,7 +109,7 @@ func parseDNSResponse(response []byte) []byte {
 func (t *Tunnel) sendData(data []byte) error {
 	transID := uint16(time.Now().Unix() & 0xFFFF)
 	query := buildDNSQuery(data, transID)
-	_, err := t.udpConn.WriteToUDP(query, t.serverAddr)
+	_, err := t.udpConn.Write(query)
 	if err == nil {
 		atomic.AddUint64(&stats.PacketsSent, 1)
 		atomic.AddUint64(&stats.BytesSent, uint64(len(query)))

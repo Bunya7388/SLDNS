@@ -199,8 +199,25 @@ func buildDNSResponse(query []byte, sessionID uint32) []byte {
 		return query
 	}
 
-	response := make([]byte, len(query))
-	copy(response, query)
+	qPos := 12
+	for qPos < len(query) {
+		if query[qPos] == 0 {
+			qPos++
+			break
+		}
+		if (query[qPos] & 0xc0) == 0xc0 {
+			qPos += 2
+			break
+		}
+		qPos++
+	}
+	qPos += 4 // Skip QTYPE and QCLASS
+	if qPos > len(query) {
+		qPos = len(query)
+	}
+
+	response := make([]byte, qPos, qPos+16)
+	copy(response, query[:qPos])
 
 	// Set response flags: QR=1, AA=1, TC=0, RD=1, RA=1, RCODE=0
 	response[2] = 0x84
@@ -209,34 +226,18 @@ func buildDNSResponse(query []byte, sessionID uint32) []byte {
 	binary.BigEndian.PutUint16(response[4:6], 1)
 	binary.BigEndian.PutUint16(response[6:8], 1)
 
-	// Extract question
-	qPos := 12
-	for qPos < len(response)-4 {
-		if response[qPos] == 0 {
-			qPos++
-			break
-		}
-		if (response[qPos] & 0xc0) == 0xc0 {
-			qPos += 2
-			break
-		}
-		qPos++
-	}
-	qPos += 4 // Skip QTYPE and QCLASS
-
-	// Add answer record
-	if qPos+14 < len(response) {
-		copy(response[qPos:], query[12:])
-		copy(response[qPos:], []byte{0xc0, 0x0c})
-		binary.BigEndian.PutUint16(response[qPos+2:], 1)  // TYPE A
-		binary.BigEndian.PutUint16(response[qPos+4:], 1)  // CLASS IN
-		binary.BigEndian.PutUint32(response[qPos+6:], 60) // TTL
-		binary.BigEndian.PutUint16(response[qPos+10:], 4) // RDLENGTH
-		response[qPos+12] = byte(sessionID >> 24)
-		response[qPos+13] = byte(sessionID >> 16)
-		response[qPos+14] = byte(sessionID >> 8)
-		response[qPos+15] = byte(sessionID)
-	}
+	// Append answer record
+	response = append(response, 0xc0, 0x0c)
+	response = append(response, 0x00, 0x01)             // TYPE A
+	response = append(response, 0x00, 0x01)             // CLASS IN
+	response = append(response, 0x00, 0x00, 0x00, 0x3c) // TTL 60
+	response = append(response, 0x00, 0x04)             // RDLENGTH 4
+	response = append(response,
+		byte(sessionID>>24),
+		byte(sessionID>>16),
+		byte(sessionID>>8),
+		byte(sessionID),
+	)
 
 	return response
 }
